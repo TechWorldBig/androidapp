@@ -35,3 +35,11 @@ Upload the APK to a controlled Drive folder or use the EAS internal distribution
 Firestore rules block client writes to quizzes, scores, attempts, roles, and answer keys. Callable functions check auth and pastor claims. Correct answers live outside member-readable collections. Camera consent, face checks, native focus/multi-window monitoring, FCM, CSV import, leaderboard, automatic server submission of unanswered attempts, audit UI, and comprehensive tests are **not yet implemented**. Do not deploy for a real competition until these are completed and independently reviewed.
 
 See `docs/PRIVACY.md` and `docs/DEVICE_TESTS.md`.
+
+## Automatic APK builds from GitHub
+
+The workflow at `.github/workflows/eas-android-preview.yml` runs on every push to `main` (and can also be started with **Run workflow**). It checks out the repository, installs the monorepo dependencies, then runs the `apps/mobile` Expo project with the existing `preview` EAS profile. That profile remains configured for Android internal distribution and APK output; it does not submit to Google Play.
+
+Add a GitHub Actions repository secret named `EXPO_TOKEN`. Create it from the Expo account that owns this project with `eas token:create`, and ensure that account can build the existing EAS project. The workflow uses the EAS project and Android signing credentials already associated with the project; it does not change the project ID, package name, or credentials.
+
+After a push, open the repository's **Actions** tab and select **EAS Android preview APK** to see the job. The build link and APK artifact are available in the Expo dashboard under the project's **Builds** page. Open the completed Android build and use **Install** or **Download** to retrieve the APK, or copy its internal distribution URL for testers.
