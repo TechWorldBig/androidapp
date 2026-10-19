@@ -13,7 +13,34 @@ React Native member app, React pastor dashboard, and Firebase backend for JSC Ko
 
 ## First pastor
 
-Create the pastor account in Firebase Authentication. Set its custom claim with a trusted Firebase Admin SDK script such as `getAuth().setCustomUserClaims(uid, { pastor: true })` from a secure administrator machine. Never expose a client function that can set the pastor claim. Sign out and back in after the claim changes.
+Create the pastor's email and password in Firebase Authentication, then grant that account the pastor role from a secure administrator machine. In Firebase Console, open **Project settings → Service accounts → Generate new private key**. Keep the downloaded JSON outside the repository. In PowerShell, run:
+
+```powershell
+$pastorServiceAccount = Get-Content -Raw -LiteralPath 'C:\safe\firebase-service-account.json'
+$env:FIREBASE_SERVICE_ACCOUNT_JSON = $pastorServiceAccount
+npm.cmd --workspace functions run grant:pastor -- pastor@example.com
+Remove-Item Env:FIREBASE_SERVICE_ACCOUNT_JSON
+```
+
+Replace `pastor@example.com` with the real pastor login email. The private key is never committed. The pastor must sign out and sign in again after the command completes.
+
+## Deploy Firebase services
+
+This repository is linked to Firebase project `jsc-bible-quiz`. After installing the Firebase CLI and running `firebase login`, deploy the backend and security rules:
+
+```text
+firebase deploy --only functions,firestore
+```
+
+The callable quiz functions use Cloud Functions for Firebase. Deployment can require the Blaze plan; review the pricing and billing setting in Firebase before deploying. Once functions are live, deploy the pastor dashboard:
+
+```text
+firebase target:apply hosting admin jsc-bible-quiz-admin
+firebase target:apply hosting download jsc-bible-quiz-download
+firebase deploy --only hosting
+```
+
+Firebase creates the two Hosting site IDs when you create them in Firebase Console → Hosting. Add the same Firebase web environment variables used by the mobile app to `apps/admin/.env` before deploying the dashboard.
 
 ## APK for Android
 

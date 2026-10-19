@@ -1,8 +1,8 @@
 {
-  "functions": { "source": "functions" },
+  "functions": { "source": "functions", "predeploy": ["npm --prefix functions run build"] },
   "firestore": { "rules": "firebase/firestore.rules", "indexes": "firebase/firestore.indexes.json" },
   "hosting": [
-    { "target": "admin", "public": "apps/admin/dist", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"], "rewrites": [{ "source": "**", "destination": "/index.html" }] },
+    { "target": "admin", "public": "apps/admin/dist", "predeploy": ["npm --workspace apps/admin run build"], "ignore": ["firebase.json", "**/.*", "**/node_modules/**"], "rewrites": [{ "source": "**", "destination": "/index.html" }] },
     { "target": "download", "public": "apps/download", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"] }
   ],
   "emulators": { "auth": { "port": 9099 }, "firestore": { "port": 8080 }, "functions": { "port": 5001 }, "hosting": { "port": 5000 }, "ui": { "enabled": true } }

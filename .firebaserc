@@ -1,0 +1,13 @@
+{
+  "projects": {
+    "default": "jsc-bible-quiz"
+  },
+  "targets": {
+    "jsc-bible-quiz": {
+      "hosting": {
+        "admin": ["jsc-bible-quiz-admin"],
+        "download": ["jsc-bible-quiz-download"]
+      }
+    }
+  }
+}
