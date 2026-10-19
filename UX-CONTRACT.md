@@ -1,6 +1,6 @@
 # UX contract
 
-- Registration creates a pending member profile. Only a pastor can approve it via a callable function.
+- Registration creates an active member profile. Members can enter their quiz dashboard immediately.
 - Pastor access comes from a Firebase Auth custom claim set through a trusted Admin SDK script.
 - A quiz is saved as draft and explicitly published. Only drafts may be edited.
 - A member starts one attempt during the scheduled window. The server owns the deadline and score.

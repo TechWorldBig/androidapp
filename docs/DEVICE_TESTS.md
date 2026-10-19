@@ -1,7 +1,7 @@
 # Manual device test checklist
 
-- Register member; verify pending state and no quiz access.
-- Approve member in pastor dashboard; sign in again and verify quiz list.
+- Register member; verify the member reaches the quiz dashboard immediately.
+- Sign in again and verify published competitions are visible.
 - Create, publish, and start a quiz at its scheduled time.
 - Verify a second attempt is refused; submit answers and verify no immediate score disclosure.
 - Publish results only after scheduled end; verify the result record is private until publication.

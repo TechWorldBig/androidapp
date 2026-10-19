@@ -11,16 +11,6 @@ const log = (uid: string, action: string, target: string) => db.collection('audi
 const text = (v: unknown, max = 500) => { if (typeof v !== 'string' || !v.trim() || v.length > max) throw new HttpsError('invalid-argument', 'A required text field is invalid.'); return v.trim(); };
 const quizRef = (id: unknown) => db.collection('quizzes').doc(text(id, 100));
 
-export const approveMember = onCall(async request => {
-  const pastor = requirePastor(request.auth?.token ?? {}, request.auth?.uid);
-  const uid = text(request.data?.uid, 128);
-  const status = request.data?.status;
-  if (!['approved', 'rejected'].includes(status)) throw new HttpsError('invalid-argument', 'Invalid status.');
-  await db.collection('users').doc(uid).update({ status, reviewedAt: FieldValue.serverTimestamp(), reviewedBy: pastor });
-  await log(pastor, 'reviewMember', uid);
-  return { ok: true };
-});
-
 export const saveQuiz = onCall(async request => {
   const pastor = requirePastor(request.auth?.token ?? {}, request.auth?.uid);
   const d = request.data ?? {};
@@ -61,8 +51,6 @@ export const publishQuiz = onCall(async request => {
 
 export const startAttempt = onCall(async request => {
   const uid = requireUser(request.auth?.uid);
-  const user = await db.collection('users').doc(uid).get();
-  if (user.data()?.status !== 'approved') throw new HttpsError('permission-denied', 'Membership approval is required.');
   const ref = quizRef(request.data?.quizId);
   const quiz = await ref.get();
   const q = quiz.data();
