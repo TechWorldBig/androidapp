@@ -1,0 +1,3 @@
+# Draft privacy notice
+
+JSC Bible Quiz uses an email address, name, answers, scores, and quiz integrity events to run church competitions. During a quiz, the app records when it enters the background. It does not record or upload camera video. The current app does not request camera access at quiz start. Access to quiz data is limited by Firebase Authentication, Firestore rules, and pastor roles. Members should contact JSC Kollemcode Pentecostal Church to ask about their data or request deletion. The church must review this notice, add contact details and retention periods, and obtain appropriate consent before production use, especially for minors.

@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function self(uid) { return signedIn() && request.auth.uid == uid; }
+    function approved() { return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved'; }
+    function pastor() { return signedIn() && request.auth.token.pastor == true; }
+    match /users/{uid} {
+      allow read: if self(uid) || pastor();
+      allow create: if self(uid) && request.resource.data.keys().hasOnly(['name','email','status','createdAt']) && request.resource.data.status == 'pending';
+      allow update, delete: if false;
+    }
+    match /quizzes/{id} {
+      allow read: if pastor() || (approved() && resource.data.status in ['published','closed']);
+      allow write: if false;
+      match /questions/{questionId} {
+        allow read: if pastor() || (approved() && get(/databases/$(database)/documents/quizzes/$(id)).data.status == 'published');
+        allow write: if false;
+      }
+    }
+    match /attempts/{id} { allow read: if pastor() || (signedIn() && resource.data.uid == request.auth.uid); allow write: if false; }
+    match /results/{id} { allow read: if pastor() || (signedIn() && resource.data.uid == request.auth.uid && resource.data.published == true); allow write: if false; }
+    match /securityEvents/{id} { allow read: if pastor(); allow write: if false; }
+    match /auditLogs/{id} { allow read: if pastor(); allow write: if false; }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

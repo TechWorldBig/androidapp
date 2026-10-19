@@ -1,0 +1,9 @@
+{
+  "functions": { "source": "functions" },
+  "firestore": { "rules": "firebase/firestore.rules", "indexes": "firebase/firestore.indexes.json" },
+  "hosting": [
+    { "target": "admin", "public": "apps/admin/dist", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"], "rewrites": [{ "source": "**", "destination": "/index.html" }] },
+    { "target": "download", "public": "apps/download", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"] }
+  ],
+  "emulators": { "auth": { "port": 9099 }, "firestore": { "port": 8080 }, "functions": { "port": 5001 }, "hosting": { "port": 5000 }, "ui": { "enabled": true } }
+}

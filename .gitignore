@@ -1,0 +1,17 @@
+node_modules/
+.expo/
+dist/
+build/
+functions/lib/
+*.tsbuildinfo
+coverage/
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+google-services.json
+GoogleService-Info.plist
+firebase-debug.log
+*.apk
+*.aab
