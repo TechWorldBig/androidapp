@@ -40,6 +40,8 @@ See `docs/PRIVACY.md` and `docs/DEVICE_TESTS.md`.
 
 The workflow at `.github/workflows/eas-android-preview.yml` runs on every push to `main` (and can also be started with **Run workflow**). It checks out the repository, installs the monorepo dependencies, then runs the `apps/mobile` Expo project with the existing `preview` EAS profile. That profile remains configured for Android internal distribution and APK output; it does not submit to Google Play.
 
+For Expo's GitHub build settings, enter `apps/mobile` as the **Base directory**. The repository root is not the Expo project root, so do not leave this field blank.
+
 Add a GitHub Actions repository secret named `EXPO_TOKEN`. Create it from the Expo account that owns this project with `eas token:create`, and ensure that account can build the existing EAS project. The workflow uses the EAS project and Android signing credentials already associated with the project; it does not change the project ID, package name, or credentials.
 
 After a push, open the repository's **Actions** tab and select **EAS Android preview APK** to see the job. The build link and APK artifact are available in the Expo dashboard under the project's **Builds** page. Open the completed Android build and use **Install** or **Download** to retrieve the APK, or copy its internal distribution URL for testers.
