@@ -55,16 +55,51 @@ export const startAttempt = onCall(async request => {
   const quiz = await ref.get();
   const q = quiz.data();
   if (!q || q.status !== 'published') throw new HttpsError('failed-precondition', 'Quiz is unavailable.');
-  const now = Date.now(), start = (q.startAt as Timestamp).toMillis(), end = start + q.durationMinutes * 60000;
-  if (now < start || now >= end) throw new HttpsError('failed-precondition', 'The quiz is outside its scheduled time.');
+  const now = Date.now();
+  if (q.startAt) {
+    const start = (q.startAt as Timestamp).toMillis();
+    if (now < start) {
+      throw new HttpsError('failed-precondition', `The quiz opens on ${new Date(start).toLocaleString()}.`);
+    }
+  }
+  if (q.closeAt) {
+    const close = (q.closeAt as Timestamp).toMillis();
+    if (now >= close) {
+      throw new HttpsError('failed-precondition', 'This quiz has closed.');
+    }
+  }
+  const durationMinutes = Number(q.durationMinutes) || 20;
+  const attemptDeadline = now + durationMinutes * 60000;
+  const end = q.closeAt ? Math.min(attemptDeadline, (q.closeAt as Timestamp).toMillis()) : attemptDeadline;
+
   const attempt = db.collection('attempts').doc(`${ref.id}_${uid}`);
+  let resumedDeadline: number | null = null;
+  let resumedAnswers: Record<string, number> = {};
   await db.runTransaction(async tx => {
     const snap = await tx.get(attempt);
-    if (snap.exists) throw new HttpsError('already-exists', 'An attempt already exists.');
+    if (snap.exists) {
+      const data = snap.data()!;
+      if (data.status === 'submitted') {
+        throw new HttpsError('already-exists', 'You have already completed this challenge.');
+      }
+      const existingDeadline = (data.deadline as Timestamp).toMillis();
+      if (now < existingDeadline) {
+        resumedDeadline = existingDeadline;
+        resumedAnswers = (data.answers as Record<string, number>) || {};
+        return;
+      }
+      throw new HttpsError('deadline-exceeded', 'Your attempt time limit has expired.');
+    }
     tx.create(attempt, { quizId: ref.id, uid, startedAt: Timestamp.now(), deadline: Timestamp.fromMillis(end), status: 'active' });
   });
   const questions = await ref.collection('questions').orderBy('order').get();
-  return { attemptId: attempt.id, deadline: end, questions: questions.docs.map(d => ({ id: d.id, ...d.data() })) };
+  return {
+    attemptId: attempt.id,
+    deadline: resumedDeadline !== null ? resumedDeadline : end,
+    durationMinutes,
+    questions: questions.docs.map(d => ({ id: d.id, ...d.data() })),
+    existingAnswers: resumedAnswers
+  };
 });
 
 export const submitAttempt = onCall(async request => {
@@ -78,16 +113,62 @@ export const submitAttempt = onCall(async request => {
   const q = quiz.data();
   if (!q) throw new HttpsError('not-found', 'Quiz not found.');
   const keys = await db.collection('protectedAnswerKeys').where('quizId', '==', quizId).get();
+  const maxScore = keys.docs.length || q.questionCount || 0;
   const score = keys.docs.reduce((sum, doc) => sum + (answers[String(doc.data().order)] === doc.data().correctIndex ? 1 : 0), 0);
+  const pointsEarned = score * 10;
   await db.runTransaction(async tx => {
     const snap = await tx.get(attempt);
     if (!snap.exists || snap.data()?.uid !== uid || snap.data()?.status !== 'active') throw new HttpsError('failed-precondition', 'No active attempt.');
     const deadline = (snap.data()!.deadline as Timestamp).toMillis();
     if (Date.now() > deadline + 30000) throw new HttpsError('deadline-exceeded', 'The submission deadline has passed.');
-    tx.update(attempt, { status: 'submitted', submittedAt: FieldValue.serverTimestamp(), answers });
-    tx.create(result, { quizId, uid, score, maxScore: q.questionCount, published: false, submittedAt: FieldValue.serverTimestamp() });
+    tx.update(attempt, { status: 'submitted', submittedAt: FieldValue.serverTimestamp(), answers, score, maxScore, points: pointsEarned });
+    tx.set(result, { quizId, uid, score, maxScore, points: pointsEarned, published: true, submittedAt: FieldValue.serverTimestamp() }, { merge: true });
+    const userRef = db.collection('users').doc(uid);
+    tx.set(userRef, { points: FieldValue.increment(pointsEarned), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   });
-  return { submitted: true };
+  return { submitted: true, score, maxScore, pointsEarned };
+});
+
+export const getQuizResult = onCall(async request => {
+  const uid = requireUser(request.auth?.uid);
+  const quizId = text(request.data?.quizId, 100);
+  const snap = await db.collection('results').doc(`${quizId}_${uid}`).get();
+  if (!snap.exists) return { completed: false };
+  return { completed: true, ...snap.data() };
+});
+
+export const notifyRegistration = onCall(async request => {
+  const uid = requireUser(request.auth?.uid);
+  const email = text(request.data?.email, 200);
+  const name = text(request.data?.name, 200);
+  await db.collection('mail').add({
+    to: email,
+    uid,
+    message: {
+      subject: 'Registration Successful - JSC Kollemcode Bible Quiz',
+      text: `Hello ${name},\n\nYou have been registered to church app successfully.\n\nBlessings,\nJSC Kollemcode Pentecostal Church`
+    },
+    createdAt: FieldValue.serverTimestamp()
+  });
+  await log(uid, 'registrationNotification', email);
+  return { success: true, message: 'You have been registered to church app successfully' };
+});
+
+export const getLeaderboard = onCall(async request => {
+  requireUser(request.auth?.uid);
+  const snap = await db.collection('users').where('status', '==', 'active').get();
+  const leaderboard = snap.docs
+    .map(d => {
+      const data = d.data();
+      return {
+        uid: d.id,
+        name: data.name || 'Member',
+        points: Number(data.points) || 0
+      };
+    })
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 50);
+  return { leaderboard };
 });
 
 export const recordSecurityEvent = onCall(async request => {

@@ -16,3 +16,6 @@ service-account.json
 firebase-debug.log
 *.apk
 *.aab
+.devmenu.png
+check.png
+emulator-screen.png

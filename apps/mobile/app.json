@@ -1,1 +1,39 @@
-{"expo":{"name":"JSC Bible Quiz","slug":"jsc-kollemcode","owner":"churchtests-team","scheme":"jscbiblequiz","version":"0.1.0","orientation":"portrait","userInterfaceStyle":"automatic","newArchEnabled":true,"android":{"package":"org.jsckollemcode.biblequiz","permissions":["CAMERA"],"adaptiveIcon":{"backgroundColor":"#102942"}},"plugins":["expo-router",["expo-camera",{"cameraPermission":"Camera monitoring is optional during quizzes. No video is recorded or uploaded."}]],"experiments":{"typedRoutes":true},"extra":{"eas":{"projectId":"59cae289-abc0-4aa3-8a5e-e01e8725697f"}}}}
+{
+  "expo": {
+    "name": "JSC Bible Quiz",
+    "slug": "jsc-kollemcode",
+    "owner": "churchtests-team",
+    "scheme": "jscbiblequiz",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "android": {
+      "package": "org.jsckollemcode.biblequiz",
+      "permissions": [
+        "CAMERA"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#102942"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Camera monitoring is optional during quizzes. No video is recorded or uploaded."
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "59cae289-abc0-4aa3-8a5e-e01e8725697f"
+      }
+    }
+  }
+}
