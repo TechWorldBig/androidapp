@@ -11,15 +11,12 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
-  signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -28,8 +25,6 @@ import {
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '../lib/firebase';
-
-WebBrowser.maybeCompleteAuthSession();
 
 type ViewMode = 'login' | 'register' | 'forgot_password';
 
@@ -60,14 +55,6 @@ export default function Home() {
   const [infoMessage, setInfoMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Google Auth Session
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || undefined,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || undefined,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined,
-  });
-
   // Track Firebase Auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, u => {
@@ -90,34 +77,6 @@ export default function Home() {
     });
     return () => unsubscribe();
   }, []);
-
-  // Handle Google Auth Response
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      if (id_token) {
-        handleGoogleCredentialSignIn(id_token);
-      }
-    } else if (response?.type === 'error') {
-      setError(response.error?.message || 'Google sign-in was not completed.');
-    }
-  }, [response]);
-
-  async function handleGoogleCredentialSignIn(idToken: string) {
-    setBusy(true);
-    setError('');
-    setInfoMessage('');
-    try {
-      const credential = GoogleAuthProvider.credential(idToken);
-      const cred = await signInWithCredential(auth, credential);
-      await ensureUserProfileExists(cred.user);
-      setInfoMessage('Signed in with Google successfully!');
-    } catch (e: any) {
-      setError(e.message || 'Google sign-in failed.');
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function ensureUserProfileExists(u: User) {
     const userRef = doc(db, 'users', u.uid);
@@ -153,14 +112,10 @@ export default function Home() {
         await ensureUserProfileExists(cred.user);
         setInfoMessage('Signed in with Google successfully!');
       } else {
-        if (!request) {
-          Alert.alert(
-            'Google Sign-In Note',
-            'To use live Google OAuth on mobile devices, set EXPO_PUBLIC_GOOGLE_CLIENT_ID in your environment variables. You can also sign in with your Google email and password directly.'
-          );
-          return;
-        }
-        await promptAsync();
+        Alert.alert(
+          'Google Sign-In Not Configured',
+          'Register with your Gmail address and create an app password. Do not enter your Gmail password.'
+        );
       }
     } catch (e: any) {
       setError(e.message || 'Google sign-in failed.');
