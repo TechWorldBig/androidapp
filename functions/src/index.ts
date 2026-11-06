@@ -10,6 +10,35 @@ const requirePastor = (token: Record<string, unknown>, uid?: string) => { requir
 const log = (uid: string, action: string, target: string) => db.collection('auditLogs').add({ uid, action, target, at: FieldValue.serverTimestamp() });
 const text = (v: unknown, max = 500) => { if (typeof v !== 'string' || !v.trim() || v.length > max) throw new HttpsError('invalid-argument', 'A required text field is invalid.'); return v.trim(); };
 const quizRef = (id: unknown) => db.collection('quizzes').doc(text(id, 100));
+const normalizeUsername = (value: unknown) => {
+  if (typeof value !== 'string') throw new HttpsError('invalid-argument', 'Username is required.');
+  const username = value.trim().toLowerCase();
+  if (!/^[a-z0-9_]{3,30}$/.test(username)) throw new HttpsError('invalid-argument', 'Username must be 3-30 characters using letters, numbers, or underscores.');
+  return username;
+};
+
+export const claimUsername = onCall(async request => {
+  const uid = requireUser(request.auth?.uid);
+  const username = normalizeUsername(request.data?.username);
+  const userRef = db.collection('users').doc(uid);
+  const usernameRef = db.collection('usernames').doc(username);
+  await db.runTransaction(async tx => {
+    const userSnap = await tx.get(userRef);
+    const usernameSnap = await tx.get(usernameRef);
+    if (usernameSnap.exists && usernameSnap.data()?.uid !== uid) throw new HttpsError('already-exists', 'That username is already in use.');
+    if (!userSnap.exists) throw new HttpsError('not-found', 'Create your member profile first.');
+    tx.set(usernameRef, { uid, email: userSnap.data()?.email || '', updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    tx.set(userRef, { username, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  });
+  return { username };
+});
+
+export const resolveUsername = onCall(async request => {
+  const username = normalizeUsername(request.data?.username);
+  const snap = await db.collection('usernames').doc(username).get();
+  if (!snap.exists || typeof snap.data()?.email !== 'string') throw new HttpsError('not-found', 'Username or password is incorrect.');
+  return { email: snap.data()!.email };
+});
 
 export const saveQuiz = onCall(async request => {
   const pastor = requirePastor(request.auth?.token ?? {}, request.auth?.uid);

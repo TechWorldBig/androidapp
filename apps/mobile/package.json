@@ -4,7 +4,7 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "start": "expo start --dev-client",
+    "start": "expo start",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
     "ios": "expo run:ios"
@@ -14,7 +14,6 @@
     "expo-auth-session": "~7.0.11",
     "expo-camera": "~17.0.0",
     "expo-crypto": "~15.0.9",
-    "expo-dev-client": "~6.0.21",
     "expo-linking": "~8.0.12",
     "expo-router": "~6.0.0",
     "expo-screen-capture": "~8.0.0",

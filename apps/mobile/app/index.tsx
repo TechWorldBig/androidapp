@@ -49,6 +49,7 @@ export default function Home() {
 
   // Form fields
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [age, setAge] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -171,11 +172,16 @@ export default function Home() {
   // Handle Registration
   async function handleRegister() {
     const trimmedName = name.trim();
+    const trimmedUsername = username.trim().toLowerCase();
     const trimmedEmail = email.trim();
     const trimmedAge = age.trim();
 
     if (!trimmedName) {
       setError('Please enter your full name.');
+      return;
+    }
+    if (!/^[a-z0-9_]{3,30}$/.test(trimmedUsername)) {
+      setError('Username must be 3-30 characters using letters, numbers, or underscores.');
       return;
     }
     const parsedAge = parseInt(trimmedAge, 10);
@@ -207,6 +213,7 @@ export default function Home() {
       // 2. Save member profile document in Firestore
       await setDoc(doc(db, 'users', cred.user.uid), {
         name: trimmedName,
+        username: trimmedUsername,
         age: parsedAge,
         email: trimmedEmail,
         status: 'active',
@@ -214,6 +221,7 @@ export default function Home() {
         authProvider: 'password',
         createdAt: serverTimestamp(),
       });
+      await httpsCallable(functions, 'claimUsername')({ username: trimmedUsername });
 
       // 3. Send email verification / welcome to user's registered email
       try {
@@ -254,9 +262,9 @@ export default function Home() {
 
   // Handle Standard Email/Password Sign-In
   async function handleLogin() {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setError('Please enter your email.');
+    const loginValue = email.trim();
+    if (!loginValue) {
+      setError('Please enter your username or email.');
       return;
     }
     if (!password) {
@@ -269,7 +277,12 @@ export default function Home() {
     setInfoMessage('');
 
     try {
-      await signInWithEmailAndPassword(auth, trimmedEmail, password);
+      let loginEmail = loginValue;
+      if (!loginValue.includes('@')) {
+        const resolved = await httpsCallable(functions, 'resolveUsername')({ username: loginValue });
+        loginEmail = (resolved.data as { email: string }).email;
+      }
+      await signInWithEmailAndPassword(auth, loginEmail, password);
     } catch (e: any) {
       if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
         setError('Incorrect email or password. Please try again.');
@@ -399,6 +412,15 @@ export default function Home() {
               />
               <TextInput
                 style={styles.input}
+                placeholder="Username (e.g. john_25) *"
+                autoCapitalize="none"
+                value={username}
+                onChangeText={setUsername}
+                accessibilityLabel="Username"
+                placeholderTextColor="#8a94a0"
+              />
+              <TextInput
+                style={styles.input}
                 placeholder="Age (e.g. 24) *"
                 keyboardType="numeric"
                 value={age}
@@ -453,7 +475,7 @@ export default function Home() {
             <>
               <TextInput
                 style={styles.input}
-                placeholder="Email Address (or Google Email)"
+                placeholder="Username or email address"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}

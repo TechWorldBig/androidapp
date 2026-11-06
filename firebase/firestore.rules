@@ -8,10 +8,11 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if self(uid) || pastor();
-      allow create: if self(uid) && request.resource.data.status == 'active' && request.resource.data.keys().hasOnly(['name','age','email','status','createdAt','points','authProvider','updatedAt']) && request.resource.data.name is string && request.resource.data.email is string;
+      allow create: if self(uid) && request.resource.data.status == 'active' && request.resource.data.keys().hasOnly(['name','username','age','email','status','createdAt','points','authProvider','updatedAt']) && request.resource.data.name is string && request.resource.data.email is string;
       allow update: if self(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'age', 'updatedAt']);
       allow delete: if false;
     }
+    match /usernames/{username} { allow read, write: if false; }
 
     match /quizzes/{id} {
       allow read: if pastor() || (member() && resource.data.status in ['published','closed']);
