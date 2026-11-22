@@ -60,14 +60,14 @@ export default function Home() {
   const [infoMessage, setInfoMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '323325289419-tc8l2f3r0pbrashkb3429otrvthkkeo4.apps.googleusercontent.com';
+  const googleAndroidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '323325289419-gs27esp3hcqufvvcbp0orjhmdbnh8c73.apps.googleusercontent.com';
 
   // Google Auth Session with device account picker prompt
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: googleClientId || undefined,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || googleClientId || undefined,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined,
+    clientId: googleClientId,
+    webClientId: googleClientId,
+    androidClientId: googleAndroidClientId,
     extraParams: { prompt: 'select_account' },
   });
 
