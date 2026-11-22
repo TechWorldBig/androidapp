@@ -113,8 +113,27 @@ export default function Home() {
         setInfoMessage('Signed in with Google successfully!');
       } else {
         Alert.alert(
-          'Google Sign-In Not Configured',
-          'Register with your Gmail address and create an app password. Do not enter your Gmail password.'
+          'Sign In with Gmail / Google',
+          'To sign in with your Gmail account, enter your Gmail address and church password. If you are registering for the first time, tap "Register with Gmail" below.',
+          [
+            {
+              text: 'Register with Gmail',
+              onPress: () => {
+                setViewMode('register');
+                setError('');
+                setInfoMessage('Please enter your Name, Age, Gmail address, and choose a password to register.');
+              },
+            },
+            {
+              text: 'Sign In with Gmail',
+              onPress: () => {
+                setViewMode('login');
+                setError('');
+                setInfoMessage('Enter your Gmail address and church password below to sign in.');
+              },
+            },
+            { text: 'Cancel', style: 'cancel' },
+          ]
         );
       }
     } catch (e: any) {
@@ -135,7 +154,7 @@ export default function Home() {
       setError('Please enter your full name.');
       return;
     }
-    if (!/^[a-z0-9_]{3,30}$/.test(trimmedUsername)) {
+    if (trimmedUsername && !/^[a-z0-9_]{3,30}$/.test(trimmedUsername)) {
       setError('Username must be 3-30 characters using letters, numbers, or underscores.');
       return;
     }
@@ -145,7 +164,7 @@ export default function Home() {
       return;
     }
     if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      setError('Please enter a valid email address.');
+      setError('Please enter a valid email address (e.g. yourname@gmail.com).');
       return;
     }
     if (password.length < 6) {
@@ -156,6 +175,9 @@ export default function Home() {
       setError('Passwords do not match. Please re-enter.');
       return;
     }
+
+    const fallbackUsername = trimmedEmail.split('@')[0].replace(/[^a-z0-9_]/g, '').slice(0, 20) || 'member_' + Math.floor(Math.random() * 10000);
+    const finalUsername = trimmedUsername || fallbackUsername;
 
     setBusy(true);
     setError('');
@@ -168,7 +190,7 @@ export default function Home() {
       // 2. Save member profile document in Firestore
       await setDoc(doc(db, 'users', cred.user.uid), {
         name: trimmedName,
-        username: trimmedUsername,
+        username: finalUsername,
         age: parsedAge,
         email: trimmedEmail,
         status: 'active',
@@ -176,7 +198,11 @@ export default function Home() {
         authProvider: 'password',
         createdAt: serverTimestamp(),
       });
-      await httpsCallable(functions, 'claimUsername')({ username: trimmedUsername });
+      try {
+        await httpsCallable(functions, 'claimUsername')({ username: finalUsername });
+      } catch (uErr) {
+        console.log('Username reservation notice:', uErr);
+      }
 
       // 3. Send email verification / welcome to user's registered email
       try {
@@ -219,7 +245,7 @@ export default function Home() {
   async function handleLogin() {
     const loginValue = email.trim();
     if (!loginValue) {
-      setError('Please enter your username or email.');
+      setError('Please enter your email or username.');
       return;
     }
     if (!password) {
@@ -234,15 +260,21 @@ export default function Home() {
     try {
       let loginEmail = loginValue;
       if (!loginValue.includes('@')) {
-        const resolved = await httpsCallable(functions, 'resolveUsername')({ username: loginValue });
-        loginEmail = (resolved.data as { email: string }).email;
+        try {
+          const resolved = await httpsCallable(functions, 'resolveUsername')({ username: loginValue });
+          loginEmail = (resolved.data as { email: string }).email;
+        } catch {
+          loginEmail = loginValue;
+        }
       }
       await signInWithEmailAndPassword(auth, loginEmail, password);
     } catch (e: any) {
-      if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
-        setError('Incorrect email or password. Please try again.');
+      if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+        setError('No account found with this email or password incorrect. If you have not registered yet, tap "Register" above to create your church account in 10 seconds!');
+      } else if (e.code === 'auth/wrong-password') {
+        setError('Incorrect password. Tap "Forgot Password?" below to receive a reset link in your email.');
       } else {
-        setError(e.message || 'Sign in failed. Please try again.');
+        setError(e.message || 'Sign in failed. Please check your credentials and try again.');
       }
     } finally {
       setBusy(false);
@@ -367,7 +399,7 @@ export default function Home() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Username (e.g. john_25) *"
+                placeholder="Username (optional, e.g. john_25)"
                 autoCapitalize="none"
                 value={username}
                 onChangeText={setUsername}
@@ -385,7 +417,7 @@ export default function Home() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Email Address *"
+                placeholder="Email Address (e.g. Gmail) *"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
@@ -430,7 +462,7 @@ export default function Home() {
             <>
               <TextInput
                 style={styles.input}
-                placeholder="Username or email address"
+                placeholder="Email (e.g. Gmail) or username"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
