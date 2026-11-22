@@ -11,12 +11,15 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
+  signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -25,6 +28,8 @@ import {
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '../lib/firebase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 type ViewMode = 'login' | 'register' | 'forgot_password';
 
@@ -55,6 +60,17 @@ export default function Home() {
   const [infoMessage, setInfoMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+
+  // Google Auth Session with device account picker prompt
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: googleClientId || undefined,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || googleClientId || undefined,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined,
+    extraParams: { prompt: 'select_account' },
+  });
+
   // Track Firebase Auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, u => {
@@ -77,6 +93,38 @@ export default function Home() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Handle Google Auth Response
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      if (id_token) {
+        handleGoogleCredentialSignIn(id_token);
+      }
+    } else if (response?.type === 'error') {
+      setError(response.error?.message || 'Google sign-in was not completed.');
+    }
+  }, [response]);
+
+  async function handleGoogleCredentialSignIn(idToken: string) {
+    setBusy(true);
+    setError('');
+    setInfoMessage('');
+    try {
+      const credential = GoogleAuthProvider.credential(idToken);
+      const cred = await signInWithCredential(auth, credential);
+      await ensureUserProfileExists(cred.user);
+      setInfoMessage('Signed in with Google successfully!');
+    } catch (e: any) {
+      if (e.code === 'auth/operation-not-allowed') {
+        setError('Google Sign-In is disabled in Firebase Console. Please enable Google in Firebase Console -> Authentication -> Sign-in method.');
+      } else {
+        setError(e.message || 'Google sign-in failed. Please try again.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function ensureUserProfileExists(u: User) {
     const userRef = doc(db, 'users', u.uid);
@@ -108,33 +156,29 @@ export default function Home() {
       if (Platform.OS === 'web') {
         setBusy(true);
         const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
         const cred = await signInWithPopup(auth, provider);
         await ensureUserProfileExists(cred.user);
         setInfoMessage('Signed in with Google successfully!');
       } else {
-        Alert.alert(
-          'Sign In with Gmail / Google',
-          'To sign in with your Gmail account, enter your Gmail address and church password. If you are registering for the first time, tap "Register with Gmail" below.',
-          [
-            {
-              text: 'Register with Gmail',
-              onPress: () => {
-                setViewMode('register');
-                setError('');
-                setInfoMessage('Please enter your Name, Age, Gmail address, and choose a password to register.');
+        if (!request) {
+          Alert.alert(
+            'Google Account Picker Setup',
+            'To pick a Google account logged into your mobile phone, Google Sign-In must be enabled in your Firebase Console.\n\nYou can also sign in or register directly using any Gmail account below.',
+            [
+              {
+                text: 'Sign In / Register with Gmail',
+                onPress: () => {
+                  setViewMode('login');
+                  setInfoMessage('Enter your Gmail address to sign in, or tap "Register" to create your account.');
+                },
               },
-            },
-            {
-              text: 'Sign In with Gmail',
-              onPress: () => {
-                setViewMode('login');
-                setError('');
-                setInfoMessage('Enter your Gmail address and church password below to sign in.');
-              },
-            },
-            { text: 'Cancel', style: 'cancel' },
-          ]
-        );
+              { text: 'Cancel', style: 'cancel' },
+            ]
+          );
+          return;
+        }
+        await promptAsync();
       }
     } catch (e: any) {
       setError(e.message || 'Google sign-in failed.');

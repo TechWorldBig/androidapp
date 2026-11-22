@@ -4,13 +4,13 @@
     "slug": "jsc-kollemcode",
     "owner": "churchtests-team",
     "scheme": "jscbiblequiz",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "android": {
       "package": "org.jsckollemcode.biblequiz",
-      "versionCode": 4,
+      "versionCode": 5,
       "permissions": [
         "CAMERA"
       ],
