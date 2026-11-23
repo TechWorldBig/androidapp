@@ -4,13 +4,13 @@
     "slug": "jsc-kollemcode",
     "owner": "churchtests-team",
     "scheme": "jscbiblequiz",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "android": {
       "package": "org.jsckollemcode.biblequiz",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
         "CAMERA"
       ],
@@ -26,7 +26,8 @@
           "cameraPermission": "Camera monitoring is optional during quizzes. No video is recorded or uploaded."
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true
