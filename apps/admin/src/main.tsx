@@ -348,7 +348,11 @@ function App() {
                     #{index + 1} {m.name || 'Member'}
                   </strong>
                   <small>
-                    Email: {m.email} {m.age ? `· Age: ${m.age}` : ''} · Status: {m.status}
+                    Email: {m.email}
+                    {m.age ? ` · Age: ${m.age}` : ''}
+                    {m.phoneNumber ? ` · Phone: ${m.phoneNumber}` : ''}
+                    {m.churchName ? ` · Church: ${m.churchName}` : ''}
+                    {m.address ? ` · Address: ${m.address}` : ''} · Status: {m.status}
                   </small>
                 </div>
                 <div>

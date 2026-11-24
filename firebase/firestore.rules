@@ -1,15 +1,110 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function self(uid) { return signedIn() && request.auth.uid == uid; }
-    function member() { return signedIn(); }
-    function pastor() { return signedIn() && request.auth.token.pastor == true; }
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid} (matches Firebase Auth UID)
+    // Fields:
+    //   - name: string (required, 1..120 chars) - member display name
+    //   - username: string | null (optional, 1..30 chars, immutable on client update) - member username
+    //   - age: number | null (optional, 1..130) - member age
+    //   - email: string (required, 0..254 chars, valid email if non-empty, immutable on update) - member email
+    //   - phoneNumber: string | null (optional, 0..30 chars) - member phone number
+    //   - churchName: string | null (optional, 0..150 chars) - member church name
+    //   - address: string | null (optional, 0..300 chars) - member address
+    //   - status: string (required, 'active', immutable on update) - member account status
+    //   - points: number (optional on create/legacy, 0 on create, >= 0, immutable on client update) - quiz points
+    //   - authProvider: string (optional, 'password' | 'google' | 'email', immutable on update) - auth provider
+    //   - createdAt: timestamp (required on create, immutable on update) - creation timestamp
+    //   - updatedAt: timestamp (optional, timestamp) - last profile update timestamp
+    //
+    // Collection: usernames/{username} - Server-managed username lookup (client access denied)
+    // Collection: quizzes/{id} - Server-managed quizzes (read: pastor or published/closed for members)
+    //   Subcollection: questions/{questionId} - Read: pastor or published quiz for members
+    // Collection: attempts/{id} - Server-managed attempts (read: pastor or owner)
+    // Collection: results/{id} - Server-managed results (read: pastor or owner)
+    // Collection: mail/{id} - Outbound registration email queue (create: signed-in; read/update/delete: denied)
+    // Collection: securityEvents/{id} - Integrity events (read: pastor; write: denied)
+    // Collection: auditLogs/{id} - Admin audit logs (read: pastor; write: denied)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() { return request.auth != null; }
+    function signedIn() { return isAuthenticated(); }
+    function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
+    function self(uid) { return isOwner(uid); }
+    function member() { return isAuthenticated(); }
+    function pastor() { return isAuthenticated() && request.auth.token.pastor == true; }
+
+    function hasRequiredFields(data, fields) {
+      return data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(data, fields) {
+      return data.keys().hasOnly(fields);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidOptionalNullableString(data, field, minLen, maxLen) {
+      return !(field in data) ||
+        data[field] == null ||
+        (data[field] is string &&
+         data[field].size() >= minLen &&
+         data[field].size() <= maxLen);
+    }
+
+    // ===============================================================
+    // Domain Validators (Used on both create and update)
+    // ===============================================================
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(data, [
+          'name', 'username', 'age', 'email', 'phoneNumber',
+          'churchName', 'address', 'status', 'createdAt',
+          'points', 'authProvider', 'updatedAt'
+        ]) &&
+        hasRequiredFields(data, ['name', 'email', 'status']) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        isValidOptionalNullableString(data, 'username', 1, 30) &&
+        (!('age' in data) || data.age == null || (data.age is number && data.age >= 1 && data.age <= 130)) &&
+        data.email is string && data.email.size() <= 254 && (data.email.size() == 0 || isValidEmail(data.email)) &&
+        isValidOptionalNullableString(data, 'phoneNumber', 0, 30) &&
+        isValidOptionalNullableString(data, 'churchName', 0, 150) &&
+        isValidOptionalNullableString(data, 'address', 0, 300) &&
+        data.status is string && data.status == 'active' &&
+        (!('points' in data) || (data.points is number && data.points >= 0)) &&
+        (!('authProvider' in data) || (data.authProvider is string && data.authProvider in ['password', 'google', 'email'])) &&
+        (!('createdAt' in data) || data.createdAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
 
     match /users/{uid} {
       allow read: if self(uid) || pastor();
-      allow create: if self(uid) && request.resource.data.status == 'active' && request.resource.data.keys().hasOnly(['name','username','age','email','status','createdAt','points','authProvider','updatedAt']) && request.resource.data.name is string && request.resource.data.email is string;
-      allow update: if self(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'age', 'updatedAt']);
+      allow create: if self(uid) &&
+        isValidUser(request.resource.data) &&
+        'createdAt' in request.resource.data &&
+        request.resource.data.createdAt is timestamp &&
+        (!('points' in request.resource.data) || request.resource.data.points == 0);
+      allow update: if self(uid) &&
+        resource.data.status == 'active' &&
+        isValidUser(request.resource.data) &&
+        areImmutableFieldsUnchanged(['status', 'points', 'createdAt', 'email', 'authProvider', 'username']) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'age', 'phoneNumber', 'churchName', 'address', 'updatedAt'
+        ]);
       allow delete: if false;
     }
     match /usernames/{username} { allow read, write: if false; }
